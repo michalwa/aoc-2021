@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 day_1 = []
+day_2 = []
 
 part_1 = []
 part_2 = []
