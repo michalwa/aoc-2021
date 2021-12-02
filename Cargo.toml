@@ -1,0 +1,12 @@
+[package]
+name = "aoc-2021"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+day_1 = []
+
+part_1 = []
+part_2 = []
+
+[dependencies]
