@@ -6,6 +6,8 @@ use std::{error::Error, env, fs::File, io::Read};
 mod day_1;
 #[cfg(feature = "day_2")]
 mod day_2;
+#[cfg(feature = "day_3")]
+mod day_3;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args();
@@ -20,6 +22,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     day_1::main(&input[..])?;
     #[cfg(feature = "day_2")]
     day_2::main(&input[..])?;
+    #[cfg(feature = "day_3")]
+    day_3::main(&input[..])?;
 
     Ok(())
 }
