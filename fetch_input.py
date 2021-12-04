@@ -3,27 +3,60 @@
 
 import os
 import sys
+import argparse
 import requests
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
-URL = "https://adventofcode.com/{year}/day/{day}/input"
+INPUT_URL = "https://adventofcode.com/{year}/day/{day}/input"
+EXAMPLE_URL = "https://adventofcode.com/{year}/day/{day}"
+DEFAULT_OUTPUT = "inputs/day{day}{suffix}.txt"
+
+parser = argparse.ArgumentParser(description="Fetches input from AoC")
+parser.add_argument("-y", "--year", required=True, type=int)
+parser.add_argument("-d", "--day", required=True, type=int)
+parser.add_argument("-e", "--example", action="store_true",
+                    help="fetches the example instead of actual input")
+parser.add_argument("-o", "--output", type=argparse.FileType("w"),
+                    help="specifies the output file")
+
+
+def write_output(output: str, args: argparse.Namespace) -> None:
+    if args.output:
+        args.output.write(output)
+    else:
+        suffix = '-example' if args.example else ''
+        filename = DEFAULT_OUTPUT.format(suffix=suffix, **args.__dict__)
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(output)
+
 
 if __name__ == "__main__":
     load_dotenv()
+    args = parser.parse_args()
 
-    script_name = sys.argv[0]
-    try:
-        year, day, *_ = sys.argv[1:]
-    except ValueError:
-        print(f"Usage: {script_name} <year> <day>", file=sys.stderr)
-        exit(1)
+    if not args.example:
+        response = requests.get(
+            INPUT_URL.format(**args.__dict__),
+            cookies={"session": os.getenv("AOC_SESSION")},
+        )
 
-    response = requests.get(
-        URL.format(year=year, day=day),
-        cookies={"session": os.getenv("AOC_SESSION")},
-    )
+        if not response.ok:
+            print("Error fetching input", file=sys.stderr)
+            exit(1)
 
-    if response.ok:
-        print(response.text)
+        write_output(response.text, args)
+
     else:
-        print("Error fetching input", file=sys.stderr)
+        response = requests.get(EXAMPLE_URL.format(**args.__dict__))
+
+        if not response.ok:
+            print("Error fetching example", file=sys.stderr)
+            exit(1)
+
+        bs = BeautifulSoup(response.text, features="html.parser")
+        # The example is usually contained within the first <code> element
+        content = bs.find("code").text
+
+        write_output(content, args)
