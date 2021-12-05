@@ -1,4 +1,5 @@
 #![feature(array_windows)]
+#![feature(mixed_integer_ops)]
 
 use std::{error::Error, env, fs::File, io::Read};
 
@@ -10,6 +11,8 @@ mod day_2;
 mod day_3;
 #[cfg(feature = "day_4")]
 mod day_4;
+#[cfg(feature = "day_5")]
+mod day_5;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args();
@@ -28,6 +31,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     day_3::main(&input[..])?;
     #[cfg(feature = "day_4")]
     day_4::main(&input[..])?;
+    #[cfg(feature = "day_5")]
+    day_5::main(&input[..])?;
 
     Ok(())
 }
