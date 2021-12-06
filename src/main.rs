@@ -13,6 +13,8 @@ mod day_3;
 mod day_4;
 #[cfg(feature = "day_5")]
 mod day_5;
+#[cfg(feature = "day_6")]
+mod day_6;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args();
@@ -33,6 +35,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     day_4::main(&input[..])?;
     #[cfg(feature = "day_5")]
     day_5::main(&input[..])?;
+    #[cfg(feature = "day_6")]
+    day_6::main(&input[..])?;
 
     Ok(())
 }
