@@ -1,5 +1,6 @@
 #![feature(array_windows)]
 #![feature(mixed_integer_ops)]
+#![feature(int_abs_diff)]
 
 use std::{error::Error, env, fs::File, io::Read};
 
@@ -15,6 +16,8 @@ mod day_4;
 mod day_5;
 #[cfg(feature = "day_6")]
 mod day_6;
+#[cfg(feature = "day_7")]
+mod day_7;
 // Include new day mod here
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -38,6 +41,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     day_5::main(&input[..])?;
     #[cfg(feature = "day_6")]
     day_6::main(&input[..])?;
+    #[cfg(feature = "day_7")]
+    day_7::main(&input[..])?;
     // Call new day here
 
     Ok(())
