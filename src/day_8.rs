@@ -2,11 +2,12 @@ use std::{
     collections::HashSet,
     error::Error,
     fmt::{self, Write},
-    hash::{Hash, Hasher},
+    hash::Hash,
     ops,
     str::FromStr,
 };
 
+/// Patterns representing digits from 0 to 9
 const DIGITS: [Pattern; 10] = [
     //                        GFEDCBA
     Pattern::from_bit_set(0b0_1110111),
@@ -21,6 +22,14 @@ const DIGITS: [Pattern; 10] = [
     Pattern::from_bit_set(0b0_1101111),
 ];
 
+/// A bit set which can represent the state of a 7-segment display
+/// with an additional number of "unbound" elements. No assumptions are
+/// made about the equality of unbound elements.
+///
+/// Examples:
+///  - a pattern representing the digit 2: `ACDEG`
+///  - a pattern representing the "intersection" of 5-segment digits: `ADG??`
+///
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct Pattern {
     set: u8,
@@ -69,6 +78,8 @@ impl fmt::Debug for Pattern {
 impl ops::Sub<Pattern> for Pattern {
     type Output = Pattern;
 
+    /// Subtracts bound elements of the right-hand-side set from this set.
+    /// Leaves unbound elements unchanged.
     fn sub(self, rhs: Pattern) -> Self::Output {
         Self {
             set: self.set & !rhs.set,
@@ -80,6 +91,8 @@ impl ops::Sub<Pattern> for Pattern {
 impl ops::BitAnd<Pattern> for Pattern {
     type Output = Pattern;
 
+    /// Computes the intersection of the two sets.
+    /// The resulting set is guaranteed to contain no unbound elements.
     fn bitand(self, rhs: Pattern) -> Self::Output {
         Self {
             set: self.set & rhs.set,
@@ -91,6 +104,12 @@ impl ops::BitAnd<Pattern> for Pattern {
 impl ops::Mul<Pattern> for Pattern {
     type Output = Pattern;
 
+    /// "Merges" the two sets together so that the resulting set contains all common elements
+    /// as bound elements and a number of unbound elements, such that the length of the
+    /// resulting set is equal to the length of both sets.
+    ///
+    /// # Safety
+    /// Requires that the lengths of both sets are equal, otherwise panics.
     fn mul(self, rhs: Pattern) -> Self::Output {
         assert!(self.len() == rhs.len());
         let mut merged = self & rhs;
@@ -100,18 +119,23 @@ impl ops::Mul<Pattern> for Pattern {
 }
 
 impl Pattern {
+    /// Constructs a pattern with bound elements given by the bit set and no unbound elements.
     const fn from_bit_set(set: u8) -> Self {
         Self { set, unbound: 0 }
     }
 
+    /// Returns the total number of elements (both bound and unbound) in the set.
     const fn len(self) -> usize {
         self.set.count_ones() as usize + self.unbound as usize
     }
 
+    /// Returns the number of bound elements in the set.
     const fn len_bound(self) -> usize {
         self.set.count_ones() as usize
     }
 
+    /// Returns the bit index (0 is least significant) of the single bound element in this set,
+    /// only if the set contains exactly one element which is bound. Returns `None` otherwise.
     const fn singleton_index(self) -> Option<u8> {
         if self.unbound == 0 && self.set != 0 && self.set.is_power_of_two() {
             Some(self.set.log2() as u8)
@@ -120,17 +144,30 @@ impl Pattern {
         }
     }
 
+    /// Returns `true` if all bound elements of the right-hand-side set are also contained in
+    /// this set.
+    ///
+    /// Always returns `false` if the right-hand-side set contains unbound elements, since they
+    /// cannot be compared for equality.
     const fn contains(self, rhs: Self) -> bool {
         self.set & rhs.set == rhs.set && rhs.unbound == 0
     }
 }
 
+/// Resolves display segment mappings based on example patterns
 #[derive(Default)]
 struct Solver {
+    /// Each entry `(a, b)` represents the assertion `a = b` (equality of sets, unrelated to [`Eq`]),
+    /// e.g. `(adg??, bcdef)` means `{A,D,G,?,?} = {b,c,d,e,f}`, where the left-hand-side
+    /// represents the "original" pattern and the right-hand-side represents the mapped pattern.
     knowledge: HashSet<(Pattern, Pattern)>,
 }
 
 impl Solver {
+    /// Processes the given example pattern storing collected information for later use.
+    /// The pattern (of length `n`) represents the result of mapping a `n`-segment digit
+    /// using the solved mapping. Behavior is unpredictable if two contradictory examples
+    /// are given to this method.
     fn learn(&mut self, example: Pattern) {
         if let Some(pattern) = DIGITS
             .iter()
@@ -142,12 +179,17 @@ impl Solver {
         }
     }
 
+    /// Stores the given mapping in the knowledge set, only if it is valid and useful,
+    /// i.e. `a` contains one or more bound elements and both patterns are of equal length.
     fn remember(k: &mut HashSet<(Pattern, Pattern)>, a: Pattern, b: Pattern) {
         if a.len_bound() > 0 && a.len() == b.len() {
             k.insert((a, b));
         }
     }
 
+    /// Iterates the solving algorithm the given number of times and returns the resulting mapping.
+    /// The mapping is not guaranteed to be valid (`.is_valid()`), e.g. if not enough example
+    /// patterns were given or not enough iterations have been executed.
     fn solve(&mut self, iterations: usize) -> Mapping {
         for _ in 0..iterations {
             let mut new_knowledge = HashSet::new();
@@ -161,14 +203,14 @@ impl Solver {
                     continue;
                 }
 
+                // For each pair of equalities compute their differences and intersections
+                //
+                //   (A = B) ⋀ (C = D) => (A ∖ C = B ∖ D) ⋀ (A ⋂ C = B ⋂ D)
+                //
                 if a.contains(c) && b.contains(d) {
                     Self::remember(&mut new_knowledge, a - c, b - d);
                 }
-
-                let (i, j) = (a & c, b & d);
-                if i.len() == j.len() {
-                    Self::remember(&mut new_knowledge, i, j);
-                }
+                Self::remember(&mut new_knowledge, a & c, b & d);
             }
 
             self.knowledge.extend(new_knowledge.drain());
@@ -186,6 +228,8 @@ impl Solver {
     }
 }
 
+/// Stores the solved segment mapping
+/// (`mapping[original_segment]` = singleton bit set representing the mapped segment)
 #[derive(Clone, Copy)]
 struct Mapping([u8; 7]);
 
@@ -207,6 +251,7 @@ impl Mapping {
         self.0.iter().all(|&m| m != 0 && m.is_power_of_two())
     }
 
+    /// Reverses the solved mapping on the given pattern, producing the original pattern
     fn decode(&self, input: Pattern) -> Pattern {
         let mut result = 0;
 
@@ -233,6 +278,7 @@ pub(crate) fn main(input: &str) -> Result<(), Box<dyn Error>> {
     for line in input.lines() {
         let (examples, inputs) = line.split_once(" | ").unwrap();
 
+        // Train the solver on the examples
         let mut solver = Solver::default();
         for example in examples
             .split_ascii_whitespace()
@@ -241,18 +287,21 @@ pub(crate) fn main(input: &str) -> Result<(), Box<dyn Error>> {
             solver.learn(example);
         }
 
+        // Solve the mapping
         let mapping = solver.solve(3);
         assert!(mapping.is_valid());
 
         #[cfg(feature = "logging")]
         println!("{:?}", mapping);
 
+        // Reverse the mapping on the inputs
         let inputs = inputs.split_ascii_whitespace();
 
         let mut result = 0;
         for digit in inputs
             .map(|i| i.parse().unwrap())
             .map(|i| mapping.decode(i))
+            // Find digit indices matching the digit patterns
             .map(|d| DIGITS.iter().position(|&p| p == d).unwrap())
         {
             #[cfg(feature = "part_1")]
