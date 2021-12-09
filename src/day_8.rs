@@ -21,22 +21,10 @@ const DIGITS: [Pattern; 10] = [
     Pattern::from_bit_set(0b0_1101111),
 ];
 
-#[derive(Clone, Copy, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct Pattern {
     set: u8,
     unbound: u8,
-}
-
-impl PartialEq for Pattern {
-    fn eq(&self, other: &Self) -> bool {
-        self.set.eq(&other.set)
-    }
-}
-
-impl Hash for Pattern {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash(&self.set, state)
-    }
 }
 
 impl FromStr for Pattern {
