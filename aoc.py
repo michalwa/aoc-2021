@@ -3,8 +3,11 @@
 
 import os
 import sys
+import re
 import argparse
 import requests
+import colorama
+from colorama import Fore
 from shutil import copyfile
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -51,12 +54,22 @@ def write_output(output: str, args: argparse.Namespace, suffix: str = '') -> Non
             f.write(output)
 
 
+def log(message: str, *, kind: str = "", **print_args):
+    print({
+        "success": f"{Fore.GREEN}✓{Fore.RESET} {message}",
+        "error": f"{Fore.RED}!{Fore.RESET} {message}",
+    }.get(kind, message), **print_args)
+
+    colorama.ansi.Back.BLACK
+
+
 if __name__ == "__main__":
     load_dotenv()
+    colorama.init()
     args = parser.parse_args()
 
     if args.verbose:
-        print(f"Bootstrapping Advent of Code {args.year} - Day {args.day}")
+        log(f"Bootstrapping Advent of Code {args.year} - Day {args.day}")
 
     if args.codegen:
         for template, dest in TEMPLATES.items():
@@ -64,7 +77,7 @@ if __name__ == "__main__":
             copyfile(template, dest)
 
             if args.verbose:
-                print(f"✓ Copied {template} to {dest}")
+                log(f"Copied {template} to {dest}", kind="success")
 
         for filename, marker_inserts in INSERT_FILES.items():
             with open(filename, "r") as f:
@@ -84,7 +97,7 @@ if __name__ == "__main__":
                     print(line, file=f)
 
             if args.verbose:
-                print(f"✓ Inserted lines into {filename}")
+                log(f"Inserted lines into {filename}", kind="success")
 
     if args.input:
         response = requests.get(
@@ -93,26 +106,31 @@ if __name__ == "__main__":
         )
 
         if not response.ok:
-            print("Error fetching input", file=sys.stderr)
+            log("Error fetching input", file=sys.stderr)
             exit(1)
 
         write_output(response.text, args)
 
         if args.verbose:
-            print("✓ Fetched input")
+            log("Fetched input", kind="success")
 
     if args.example:
         response = requests.get(EXAMPLE_URL.format(**args.__dict__))
 
         if not response.ok:
-            print("Error fetching example", file=sys.stderr)
+            log("Error fetching example", kind="error", file=sys.stderr)
             exit(1)
 
         bs = BeautifulSoup(response.text, features="html.parser")
-        # The example is usually contained within the first <pre> element
-        content = bs.select_one("pre > code").text
+
+        try:
+            example_label = bs.find(text=re.compile("example"))
+            content = example_label.parent.find_next_sibling("pre").find("code").text
+        except AttributeError:
+            log("Error finding example", kind="error", file=sys.stderr)
+            exit(1)
 
         write_output(content + '\n', args, '-example')
 
         if args.verbose:
-            print("✓ Fetched example input")
+            log("Fetched example input", kind="success")
