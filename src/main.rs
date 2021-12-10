@@ -22,6 +22,8 @@ mod day_6;
 mod day_7;
 #[cfg(feature = "day_8")]
 mod day_8;
+#[cfg(feature = "day_9")]
+mod day_9;
 #[cfg(feature = "day_10")]
 mod day_10;
 // Include new day mod here
@@ -51,6 +53,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     day_7::main(&input[..])?;
     #[cfg(feature = "day_8")]
     day_8::main(&input[..])?;
+    #[cfg(feature = "day_9")]
+    day_9::main(&input[..])?;
     #[cfg(feature = "day_10")]
     day_10::main(&input[..])?;
     // Call new day here
